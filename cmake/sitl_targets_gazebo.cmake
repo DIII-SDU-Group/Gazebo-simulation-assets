@@ -101,6 +101,7 @@ set(models
 	powerpylons
 	hca_temp_powerline
 	hcaa_pylon_setup
+	d4s_dc_drone
 )
 
 set(worlds
