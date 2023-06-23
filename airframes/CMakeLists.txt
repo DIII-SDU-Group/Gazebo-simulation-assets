@@ -81,6 +81,7 @@ px4_add_romfs_files(
 	2507_cloudship
 
 	99999_d4s_dc_drone
+	99998_d4s_dc_gripper
 
 	6011_typhoon_h480
 	6011_typhoon_h480.post

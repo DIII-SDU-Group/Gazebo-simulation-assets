@@ -102,6 +102,7 @@ set(models
 	hca_temp_powerline
 	hcaa_pylon_setup
 	d4s_dc_drone
+	d4s_dc_gripper
 )
 
 set(worlds
