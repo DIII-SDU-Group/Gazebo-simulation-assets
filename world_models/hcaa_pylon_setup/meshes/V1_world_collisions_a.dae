@@ -41,7 +41,7 @@
   </library_effects>
   <library_images>
     <image id="EXPORT_GOOGLE_SAT_WM_tif" name="EXPORT_GOOGLE_SAT_WM_tif">
-      <init_from>/D:/Projects/Work/HCA_envir_Test/dowloaded/20201123%20Airport/export/EXPORT_GOOGLE_SAT_WM.tif</init_from>
+      <init_from>EXPORT_GOOGLE_SAT_WM.tif</init_from>
     </image>
   </library_images>
   <library_materials>
