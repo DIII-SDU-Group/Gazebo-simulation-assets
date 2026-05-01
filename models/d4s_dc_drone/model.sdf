@@ -483,6 +483,24 @@
       <motorType>velocity</motorType>
     </plugin>
 
+    <plugin filename="iii_drone_mmwave_conductor_sensor_plugin" name="iii_drone::simulation::MmwaveConductorSensorPlugin">
+      <link_name>base_link</link_name>
+      <topic>/sensor/mmwave/points</topic>
+      <frame_id>mmwave</frame_id>
+      <conductor_asset_uri>model://hcaa_pylon_setup/conductors.yaml</conductor_asset_uri>
+      <sensor_pose>0.0 0.0 0.1 3.1415 -1.57079632679 0.0</sensor_pose>
+      <update_rate_hz>30</update_rate_hz>
+      <min_point_dist>0.99</min_point_dist>
+      <max_point_dist>18.0</max_point_dist>
+      <view_cone_slope>0.75</view_cone_slope>
+      <plane_half_thickness_m>0.08</plane_half_thickness_m>
+      <sigma_along_m>0.12</sigma_along_m>
+      <sigma_cross_m>0.03</sigma_cross_m>
+      <sigma_normal_m>0.02</sigma_normal_m>
+      <dropout_probability>0.02</dropout_probability>
+      <corridor_margin_m>0.0</corridor_margin_m>
+    </plugin>
+
 
 
     <!-- <include>
