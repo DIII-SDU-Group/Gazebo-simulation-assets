@@ -19,6 +19,11 @@ param set-default SIM_GZ_EN 1
 param set-default SENS_EN_GPSSIM 1
 param set-default SENS_EN_BAROSIM 1
 param set-default SENS_EN_MAGSIM 1
+param set-default EKF2_ABL_LIM 0.8
+param set-default COM_RC_IN_MODE 1
+param set-default NAV_RCL_ACT 0
+
+param set-default BAT1_N_CELLS 6
 
 param set-default CA_AIRFRAME 0
 param set-default CA_ROTOR_COUNT 4
