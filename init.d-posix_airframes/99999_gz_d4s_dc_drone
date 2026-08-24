@@ -18,12 +18,22 @@ param set-default SIM_GZ_EN 1
 
 param set-default SENS_EN_GPSSIM 1
 param set-default SENS_EN_BAROSIM 1
-param set-default SENS_EN_MAGSIM 1
 param set-default EKF2_ABL_LIM 0.8
 param set-default COM_RC_IN_MODE 1
+# QGroundControl joystick updates can stall for several seconds under simulation load.
+param set-default COM_RC_LOSS_T 5.0
 param set-default NAV_RCL_ACT 0
 
 param set-default BAT1_N_CELLS 6
+param set-default SIM_BAT_ENABLE 1
+param set-default SIM_BAT_DRAIN 300
+param set-default SIM_BAT_MIN_PCT 20
+param set-default SIM_BAT_CAP_WH 2
+param set-default SIM_BAT_CHG_EFF 0.9
+param set-default SIM_BAT_CHG_MAX 250
+param set-default SIM_BAT_CHG_TOUT 1
+param set-default SIM_BAT_INIT_PCT 100
+param set-default SIM_BAT_RESET 0
 
 param set-default CA_AIRFRAME 0
 param set-default CA_ROTOR_COUNT 4

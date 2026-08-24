@@ -30,6 +30,7 @@
   <plugin name='gz::sim::systems::AirPressure' filename='gz-sim-air-pressure-system'/>
   <plugin name='gz::sim::systems::ApplyLinkWrench' filename='gz-sim-apply-link-wrench-system'/>
   <plugin name='gz::sim::systems::NavSat' filename='gz-sim-navsat-system'/>
+  <plugin name='gz::sim::systems::Magnetometer' filename='gz-sim-magnetometer-system'/>
   <plugin name='gz::sim::systems::Sensors' filename='gz-sim-sensors-system'>
     <render_engine>ogre2</render_engine>
   </plugin>
@@ -44,8 +45,8 @@
       </gz-gui>
       <engine>ogre2</engine>
       <scene>scene</scene>
-      <ambient_light>0.5984631152222222 0.5984631152222222 0.5984631152222222</ambient_light>
-      <background_color>0.8984631152222222 0.8984631152222222 0.8984631152222222</background_color>
+      <ambient_light>0.75 0.77 0.8</ambient_light>
+      <background_color>0.55 0.72 0.92</background_color>
       <camera_pose>-6 0 6 0 0.5 0</camera_pose>
     </plugin>
     <plugin name='World control' filename='WorldControl'>
@@ -94,16 +95,18 @@
   <atmosphere type='adiabatic'/>
 
   <scene>
-    <sky>
-      <clouds>
-        <speed>1</speed>
-        <mean_size>0.5</mean_size>
-      </clouds>
-    </sky>
-    <ambient>0.4 0.4 0.4 1</ambient>
-    <background>0.7 0.7 0.7 1</background>
+    <ambient>0.62 0.65 0.7 1</ambient>
+    <background>0.55 0.72 0.92 1</background>
     <shadows>1</shadows>
   </scene>
+
+  <light type='directional' name='sun'>
+    <cast_shadows>1</cast_shadows>
+    <pose>0 0 30 0 0 0</pose>
+    <diffuse>1.0 0.96 0.86 1</diffuse>
+    <specular>0.35 0.35 0.32 1</specular>
+    <direction>-0.45 0.25 -0.86</direction>
+  </light>
 
   <spherical_coordinates>
     <surface_model>EARTH_WGS84</surface_model>
