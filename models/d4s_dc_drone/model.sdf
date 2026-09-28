@@ -584,7 +584,11 @@
     <plugin filename="iii_drone_sim_charger_gripper_plugin" name="iii_drone::simulation::SimChargerGripperPlugin">
       <link_name>base_link</link_name>
       <conductor_asset_uri>model://hcaa_pylon_setup/conductors.yaml</conductor_asset_uri>
-      <gripper_pose>-0.0025 -0.005 0.3575 0.0 0.0 1.57079632679</gripper_pose>
+      <!-- Keep this exactly aligned with /tf/sim/drone_to_cable_gripper.
+           The controller targets the cable_gripper frame; using a different
+           pose or axis convention here makes a valid landing impossible to
+           latch in the simulator. -->
+      <gripper_pose>0.0 0.0 0.4 1.57079632679 0.0 0.0</gripper_pose>
       <command_topic>/sim/charger_gripper/command</command_topic>
       <state_topic>/sim/charger_gripper/state</state_topic>
       <capture_min>-0.25 -0.25 -0.35</capture_min>
