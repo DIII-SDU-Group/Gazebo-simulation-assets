@@ -215,27 +215,32 @@
             </z>
           </angular_velocity>
           <linear_acceleration>
+            <!-- White noise follows PX4's upstream x500 model (IIM42653: 0.65/0.70 mg rms).
+                 Bias drift is a Gauss-Markov process (random walk 0.0006 m/s^3/sqrt(Hz),
+                 300 s correlation, about 0.75 mg steady-state), still ~3x the calibrated
+                 ADIS16448 random walk (0.0002). The previous 0.006 (RotorS default) drifted
+                 about 30x more than that part and let SITL EKF2 height drift 0.5 m at rest. -->
             <x>
               <noise type="gaussian">
                 <mean>0</mean>
-                <stddev>0.00186</stddev>
-                <dynamic_bias_stddev>0.006</dynamic_bias_stddev>
+                <stddev>0.00637</stddev>
+                <dynamic_bias_stddev>0.0006</dynamic_bias_stddev>
                 <dynamic_bias_correlation_time>300</dynamic_bias_correlation_time>
               </noise>
             </x>
             <y>
               <noise type="gaussian">
                 <mean>0</mean>
-                <stddev>0.00186</stddev>
-                <dynamic_bias_stddev>0.006</dynamic_bias_stddev>
+                <stddev>0.00637</stddev>
+                <dynamic_bias_stddev>0.0006</dynamic_bias_stddev>
                 <dynamic_bias_correlation_time>300</dynamic_bias_correlation_time>
               </noise>
             </y>
             <z>
               <noise type="gaussian">
                 <mean>0</mean>
-                <stddev>0.00186</stddev>
-                <dynamic_bias_stddev>0.006</dynamic_bias_stddev>
+                <stddev>0.00686</stddev>
+                <dynamic_bias_stddev>0.0006</dynamic_bias_stddev>
                 <dynamic_bias_correlation_time>300</dynamic_bias_correlation_time>
               </noise>
             </z>
