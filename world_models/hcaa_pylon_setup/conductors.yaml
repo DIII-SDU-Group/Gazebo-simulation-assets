@@ -1,4 +1,7 @@
 frame_id: world
+# Conductor radius (m). The conductor collision cylinders
+# (scripts/generate_conductor_collisions.py) and the charger gripper plugin use it.
+conductor_radius_m: 0.0125
 conductors:
 - id: conductor_1
   samples:

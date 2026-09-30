@@ -589,22 +589,35 @@
     <plugin filename="iii_drone_sim_charger_gripper_plugin" name="iii_drone::simulation::SimChargerGripperPlugin">
       <link_name>base_link</link_name>
       <conductor_asset_uri>model://hcaa_pylon_setup/conductors.yaml</conductor_asset_uri>
-      <!-- Keep this exactly aligned with /tf/sim/drone_to_cable_gripper.
-           The controller targets the cable_gripper frame; using a different
-           pose or axis convention here makes a valid landing impossible to
-           latch in the simulator. -->
-      <gripper_pose>0.0 0.0 0.4 1.57079632679 0.0 0.0</gripper_pose>
+      <!-- Keep this exactly aligned with /tf/sim/drone_to_cable_gripper
+           (x y z yaw pitch roll = 0 0 0.4 pi/2 0 0): the gripper x axis runs
+           along the cable, i.e. along the collision mesh's slot (base_link y),
+           and z points out of the slot opening. -->
+      <gripper_pose>0.0 0.0 0.4 0.0 0.0 1.57079632679</gripper_pose>
       <command_topic>/sim/charger_gripper/command</command_topic>
       <state_topic>/sim/charger_gripper/state</state_topic>
       <capture_min>-0.25 -0.25 -0.35</capture_min>
       <capture_max>0.25 0.25 0.12</capture_max>
-      <latch_local_point>0.0 0.0 0.0</latch_local_point>
+      <!-- The seat: conductor centre resting on the slot floor (base_link
+           z 0.344) with the conductor radius from conductors.yaml. -->
+      <latch_local_point>0.0 0.0 -0.0435</latch_local_point>
       <latch_radius>0.04</latch_radius>
       <latch_along_tolerance>0.18</latch_along_tolerance>
-      <conductor_radius>0.0</conductor_radius>
+      <conductor_radius>0.0125</conductor_radius>
       <required_contact_duration_ms>40</required_contact_duration_ms>
-      <support_stiffness>600.0</support_stiffness>
-      <support_damping>80.0</support_damping>
+      <!-- The slot floor and walls are collisions of the airframe mesh. The
+           closed jaws keep the conductor within jaw_clearance of the seat (a
+           hanging vehicle rests on them) and within wall_clearance of the
+           slot centre, grip along it, and their friction damps rotation
+           about it (about half of critical for this vehicle's swing). Once
+           open, only the physical floor and walls remain. -->
+      <jaw_clearance>0.005</jaw_clearance>
+      <wall_clearance>0.007</wall_clearance>
+      <jaw_stiffness>4000.0</jaw_stiffness>
+      <jaw_damping>150.0</jaw_damping>
+      <jaw_rotational_damping>1.0</jaw_rotational_damping>
+      <along_hold_stiffness>600.0</along_hold_stiffness>
+      <along_hold_damping>80.0</along_hold_damping>
       <support_force_limit>250.0</support_force_limit>
       <support_ramp_duration_s>0.35</support_ramp_duration_s>
     </plugin>
