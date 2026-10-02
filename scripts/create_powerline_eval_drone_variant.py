@@ -17,7 +17,12 @@ from them with the sensor layout used for powerline SLAM development
   ``cable_camera``, plus an evaluator-only pylon segmentation camera with the
   same pose and intrinsics;
 - pylon camera truth and ``/sensor/cable_camera/camera_info`` from the sensor
-  plugin.
+  plugin;
+- PX4's simulated magnetometer (``SENS_EN_MAGSIM``) instead of Gazebo's, as in
+  the powerline_slam development runtime: the field of Gazebo's magnetometer
+  as PX4 reads it has a declination of -3.1 deg at the world's location, while
+  PX4's world magnetic model expects +4.3 deg, which biases PX4's heading by
+  several degrees against truth.
 
 The radar profiles live in ``models/d4s_dc_drone_powerline_eval/radar`` and
 the radar scene in ``world_models/hcaa_pylon_setup/radar``.  Radar returns
@@ -178,11 +183,21 @@ def render_radar_u_plugin(production_plugin: str) -> str:
     )
 
 
+def remove_magnetometer(source: str) -> str:
+    """Drop Gazebo's magnetometer; PX4 simulates the field (SENS_EN_MAGSIM)."""
+    start = source.find('      <sensor name="magnetometer_sensor" type="magnetometer">\n')
+    if start < 0 or source.count('type="magnetometer"') != 1:
+        raise RuntimeError("Expected exactly one magnetometer sensor in the production model.")
+    end = source.index("      </sensor>\n", start) + len("      </sensor>\n")
+    return source[:start] + source[end:]
+
+
 def render_variant_sdf() -> str:
     source = (SOURCE_MODEL / "model.sdf").read_text()
     source = replace_once(
         source, "<model name='d4s_dc_drone'>", f"<model name='{VARIANT_NAME}'>"
     )
+    source = remove_magnetometer(source)
 
     camera_start = source.find('<sensor type="camera" name="cable_camera">')
     if camera_start < 0:
@@ -214,10 +229,18 @@ def render_variant_airframe() -> str:
         "# @name Drones4Safety DC drone model\n",
         "# @name Drones4Safety DC drone (powerline SLAM evaluation)\n",
     )
-    return replace_once(
+    source = replace_once(
         source,
         "PX4_SIM_MODEL=${PX4_SIM_MODEL:=d4s_dc_drone}\n",
         f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={VARIANT_NAME}}}\n",
+    )
+    return replace_once(
+        source,
+        "param set-default SENS_EN_BAROSIM 1\n",
+        "param set-default SENS_EN_BAROSIM 1\n"
+        "# The model has no Gazebo magnetometer: PX4 simulates the field from its\n"
+        "# world magnetic model, consistent with the declination its EKF assumes.\n"
+        "param set-default SENS_EN_MAGSIM 1\n",
     )
 
 
