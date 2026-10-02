@@ -1,0 +1,19 @@
+# Evaluator-only pylon identity map derived from V1_world_slimmer.dae.
+# The AABBs are in the world frame after the hca_full_pylon_setup include pose
+# (10.0, 19.0, -0.55) and the two source DAE node transforms.  They are not a
+# runtime map input.
+frame_id: world
+geometry_revision: hcaa_pylon_setup/V1_world_slimmer.dae:pylon-nodes-v1
+annotation_method: renderer_exact_visible_mesh_semantic_mask
+renderer_contract: gazebo_ogre2_semantic_labels_same_pose_projection_rate_clip_and_source_stamp
+pylons:
+  - id: pylon_a
+    source_node: PylonAligned
+    renderer_semantic_label: 1
+    aabb_min_world: [9.924697128, -4.792048430, -0.039512026]
+    aabb_max_world: [13.278982729, -0.573561057, 9.670489000]
+  - id: pylon_b
+    source_node: PylonAligned_001
+    renderer_semantic_label: 2
+    aabb_min_world: [-23.794252872, 3.679751570, -0.181479026]
+    aabb_max_world: [-20.439967271, 7.898238943, 9.528522000]

@@ -19,13 +19,85 @@
       <kinematic>0</kinematic>
       <pose frame=''>0 0 0 0 -0 0</pose>
       <gravity>1</gravity>
-      <visual name='visual'>
+      <!--
+        Keep the original source mesh byte-for-byte while exposing its five
+        named Collada submeshes as separate renderer entities.  Only the two
+        pylon visuals carry semantic labels.  This lets the evaluator camera
+        obtain occlusion-correct mesh silhouettes without making simulator
+        truth available to the runtime estimator.
+      -->
+      <visual name='terrain_visual'>
         <geometry>
           <mesh>
             <uri>model://hcaa_pylon_setup/meshes/V1_world_slimmer.dae</uri>
+            <submesh>
+              <name>EXPORT_GOOGLE_SAT_WM</name>
+              <center>false</center>
+            </submesh>
           </mesh>
         </geometry>
-      
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+      <visual name='pylon_a_visual'>
+        <geometry>
+          <mesh>
+            <uri>model://hcaa_pylon_setup/meshes/V1_world_slimmer.dae</uri>
+            <submesh>
+              <name>PylonAligned</name>
+              <center>false</center>
+            </submesh>
+          </mesh>
+        </geometry>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+        <plugin filename='gz-sim-label-system' name='gz::sim::systems::Label'>
+          <label>1</label>
+        </plugin>
+      </visual>
+      <visual name='pylon_b_visual'>
+        <geometry>
+          <mesh>
+            <uri>model://hcaa_pylon_setup/meshes/V1_world_slimmer.dae</uri>
+            <submesh>
+              <name>PylonAligned.001</name>
+              <center>false</center>
+            </submesh>
+          </mesh>
+        </geometry>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+        <plugin filename='gz-sim-label-system' name='gz::sim::systems::Label'>
+          <label>2</label>
+        </plugin>
+      </visual>
+      <visual name='conductor_visual'>
+        <geometry>
+          <mesh>
+            <uri>model://hcaa_pylon_setup/meshes/V1_world_slimmer.dae</uri>
+            <submesh>
+              <name>cableAssem</name>
+              <center>false</center>
+            </submesh>
+          </mesh>
+        </geometry>
+        <pose frame=''>0 0 0 0 -0 0</pose>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+      <visual name='auxiliary_mesh_visual'>
+        <geometry>
+          <mesh>
+            <uri>model://hcaa_pylon_setup/meshes/V1_world_slimmer.dae</uri>
+            <submesh>
+              <name>mesh1.001</name>
+              <center>false</center>
+            </submesh>
+          </mesh>
+        </geometry>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <transparency>0</transparency>
         <cast_shadows>1</cast_shadows>
