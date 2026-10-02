@@ -1,0 +1,56 @@
+{
+  "schema": "iii.powerline-slam-radar-assets-provenance/v1",
+  "description": "Simulator-v2 (AOP_FAST_POINT) radar configuration for the d4s_dc_drone_powerline_eval dual-radar layout (Radar-U upward on /sensor/mmwave, Radar-F 50 deg forward on /sensor/mmwave_forward), copied from the powerline_slam workspace at the configuration used by its r22-r26 development recordings (layout U0_F50_C20_R0).",
+  "source_repository": "git@github.com:frnyb/powerline-slam.git",
+  "source_commit": "c0e368f439ae10dc08e69edde0a6fb6e1715c3ab",
+  "source_status": "development configuration (not scientifically qualified)",
+  "radar_profiles": {
+    "RADAR_U_v1": "RADAR_U.yaml (512 samples x 24 loops, 80 MHz/us, 33.333 ms frames)",
+    "RADAR_F_v1": "RADAR_F.yaml (256 samples x 50 loops, 65 MHz/us, 33.333 ms frames)"
+  },
+  "rf_schedule": "RF_COEXISTENCE_SCHEDULE.json: hardware-triggered, Radar-F delayed 5.10112 ms after Radar-U",
+  "files": [
+    {
+      "source_path": "corridor_simulation/config/r22/radar_v2/RADAR_U.yaml",
+      "source_sha256": "b6f438dcfe341ae99c5e1666f913843ab9922815789423a20a146edded55b6e3",
+      "destination_path": "models/d4s_dc_drone_powerline_eval/radar/RADAR_U.yaml",
+      "destination_sha256": "75115542819d8f81e7b35106d335efb68323cd690c9d15e7f38aa0691511f4bb",
+      "change": "scatterers_path rewritten to model:// URI; two header comment lines added"
+    },
+    {
+      "source_path": "corridor_simulation/config/r22/radar_v2/RADAR_F.yaml",
+      "source_sha256": "0262d9beccbb4ac07220bd1d30deced1d3b70a7faa68c9a10870c097644c4d39",
+      "destination_path": "models/d4s_dc_drone_powerline_eval/radar/RADAR_F.yaml",
+      "destination_sha256": "696397218bead9a36a0262440bc8b1c03d49799f081e9207654b20440b486251",
+      "change": "scatterers_path rewritten to model:// URI; two header comment lines added"
+    },
+    {
+      "source_path": "corridor_simulation/config/r21/profiles/RADAR_U_PROFILE_v1.cfg",
+      "source_sha256": "c9ac06150d3bda8e2881e81cb1daf2ebfadbbe98ade930417bf7a458e669c627",
+      "destination_path": "models/d4s_dc_drone_powerline_eval/radar/profiles/RADAR_U_PROFILE_v1.cfg",
+      "destination_sha256": "c9ac06150d3bda8e2881e81cb1daf2ebfadbbe98ade930417bf7a458e669c627",
+      "change": "byte-identical"
+    },
+    {
+      "source_path": "corridor_simulation/config/r21/profiles/RADAR_F_PROFILE_v1.cfg",
+      "source_sha256": "301c63cf5e43de2d085d5d59084016eba47dcafd57c26d91d95c9e206929b582",
+      "destination_path": "models/d4s_dc_drone_powerline_eval/radar/profiles/RADAR_F_PROFILE_v1.cfg",
+      "destination_sha256": "301c63cf5e43de2d085d5d59084016eba47dcafd57c26d91d95c9e206929b582",
+      "change": "byte-identical"
+    },
+    {
+      "source_path": "corridor_simulation/provenance/WO-2026-09-29-001/02_RF_COEXISTENCE_SCHEDULE.json",
+      "source_sha256": "6d49d5f1c12f6f83dff5365653351c315d27220d7d2d3893cb7f6beaa046c95d",
+      "destination_path": "models/d4s_dc_drone_powerline_eval/radar/RF_COEXISTENCE_SCHEDULE.json",
+      "destination_sha256": "6d49d5f1c12f6f83dff5365653351c315d27220d7d2d3893cb7f6beaa046c95d",
+      "change": "byte-identical"
+    },
+    {
+      "source_path": "corridor_simulation/config/r22/scene/scene_scatterers_r22_v1.json",
+      "source_sha256": "2d9fbd7d0ffe0dd0c70667caa9fe6f5b5d96bc5c2343e8cedd96d89f311e0379",
+      "destination_path": "world_models/hcaa_pylon_setup/radar/scene_scatterers_r22_v1.json",
+      "destination_sha256": "2d9fbd7d0ffe0dd0c70667caa9fe6f5b5d96bc5c2343e8cedd96d89f311e0379",
+      "change": "byte-identical"
+    }
+  ]
+}

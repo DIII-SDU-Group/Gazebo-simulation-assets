@@ -4,19 +4,28 @@
 The production ``d4s_dc_drone`` model and its ``99999_gz_d4s_dc_drone``
 airframe remain the source of truth.  This tool derives
 ``d4s_dc_drone_powerline_eval`` and ``99997_gz_d4s_dc_drone_powerline_eval``
-from them and adds only the powerline SLAM evaluation configuration:
+from them with the sensor layout used for powerline SLAM development
+(powerline_slam layout U0_F50_C20):
 
-- an evaluator-only semantic segmentation camera (``pylon_semantic_camera``)
-  with the pose, rate, FOV, resolution and clipping of ``cable_camera``;
-- mmWave sensor plugin settings for the pylon map
-  (``model://hcaa_pylon_setup/pylons.yaml``), pylon radar returns, pylon
-  camera truth, ``camera_info`` and the finite rectangular radar FOV used for
-  powerline SLAM development.
+- Radar-U: the production upward mmWave radar (same mount, topics
+  ``/sensor/mmwave/*`` and frame ``mmwave``) running the simulator-v2
+  IWR6843AOP model (``AOP_FAST_POINT``) with profile ``RADAR_U_v1``;
+- Radar-F: a second simulator-v2 radar tilted 50 deg forward from upward
+  (topics ``/sensor/mmwave_forward/*``, frame ``mmwave_forward``) with profile
+  ``RADAR_F_v1``, triggered 5.10112 ms after Radar-U;
+- the cable camera tilted to 20 deg from upward, with ROS frame
+  ``cable_camera``, plus an evaluator-only pylon segmentation camera with the
+  same pose and intrinsics;
+- pylon camera truth and ``/sensor/cable_camera/camera_info`` from the sensor
+  plugin.
 
-Pylon radar returns are part of ``/sensor/mmwave/points`` in this variant, so
-it is selected explicitly (``PX4_SIM_MODEL=gz_d4s_dc_drone_powerline_eval``)
-and never replaces the production model.  Dynamics, collision, rotors and the
-other sensors stay identical to production.
+The radar profiles live in ``models/d4s_dc_drone_powerline_eval/radar`` and
+the radar scene in ``world_models/hcaa_pylon_setup/radar``.  Radar returns
+from pylons, terrain and clutter are part of ``/sensor/mmwave/points``, so the
+variant changes runtime inputs and is selected explicitly
+(``PX4_SIM_MODEL=gz_d4s_dc_drone_powerline_eval``); it never replaces the
+production model.  Dynamics, collision, rotors and the other sensors stay
+identical to production.
 
 Run from this asset repository after changing the production model or
 airframe:
@@ -28,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 
@@ -40,12 +50,24 @@ VARIANT_SDF = VARIANT_MODEL / "model.sdf"
 VARIANT_CONFIG = VARIANT_MODEL / "model.config"
 VARIANT_AIRFRAME = ASSET_ROOT / "init.d-posix_airframes" / f"99997_gz_{VARIANT_NAME}"
 
-SEMANTIC_CAMERA = """
+# Cable camera 20 deg from upward (powerline_slam layout C20).
+CAMERA_POSE = "0 -0.215 0.3 0 -1.2217304763960306 0"
+# Radar-F 50 deg forward from upward (powerline_slam layout F50).
+RADAR_F_POSE = "0.105 -0.24 0.285 0.0 -0.6981317007977318 0.0"
+RADAR_CONFIG_URI = f"model://{VARIANT_NAME}/radar"
+
+PRODUCTION_CAMERA_POSE = "        <pose>0 -0.215 0.3 0 -1.571 0</pose>\n"
+PRODUCTION_CAMERA_TOPIC = "        <topic>/sensor/cable_camera/image_raw</topic>\n"
+RADAR_PLUGIN = re.compile(
+    r'    <plugin filename="iii_drone_mmwave_conductor_sensor_plugin".*?</plugin>\n', re.S
+)
+
+SEMANTIC_CAMERA = f"""
       <!-- Evaluator-only, renderer-exact pylon labels.  Pose, rate, FOV,
            resolution and clipping are intentionally identical to cable_camera.
            The runtime graph must never subscribe to this topic. -->
       <sensor type="segmentation" name="pylon_semantic_camera">
-        <pose>0 -0.215 0.3 0 -1.571 0</pose>
+        <pose>{CAMERA_POSE}</pose>
         <always_on>1</always_on>
         <update_rate>10</update_rate>
         <topic>/simulation/ground_truth/cable_camera/pylon_semantic_raw</topic>
@@ -64,35 +86,46 @@ SEMANTIC_CAMERA = """
       </sensor>
 """
 
-# (anchor line in the production mmWave plugin block, lines inserted after it)
-PLUGIN_INSERTIONS = (
-    (
-        "      <camera_image_topic>/sensor/cable_camera/image_raw</camera_image_topic>\n",
-        "      <camera_info_topic>/sensor/cable_camera/camera_info</camera_info_topic>\n"
-        "      <publish_camera_info>true</publish_camera_info>\n"
-        "      <pylon_semantic_topic>/simulation/ground_truth/cable_camera/pylon_semantic_raw/labels_map</pylon_semantic_topic>\n"
-        "      <pylon_mask_topic>/simulation/ground_truth/cable_camera/pylon_instance_mask</pylon_mask_topic>\n"
-        "      <pylon_asset_uri>model://hcaa_pylon_setup/pylons.yaml</pylon_asset_uri>\n"
-        "      <pylon_returns_enabled>true</pylon_returns_enabled>\n",
-    ),
-    (
-        "      <update_rate_hz>30</update_rate_hz>\n",
-        "      <min_point_dist>0.25</min_point_dist>\n",
-    ),
-    (
-        "      <max_point_dist>18.0</max_point_dist>\n",
-        "      <fov_model>FINITE_RECTANGULAR</fov_model>\n"
-        "      <azimuth_half_angle_rad>0.6107259643892086</azimuth_half_angle_rad>\n"
-        "      <elevation_half_angle_rad>0.6107259643892086</elevation_half_angle_rad>\n",
-    ),
+CAMERA_TRUTH_SETTINGS = (
+    "      <camera_info_topic>/sensor/cable_camera/camera_info</camera_info_topic>\n"
+    "      <pylon_semantic_topic>/simulation/ground_truth/cable_camera/pylon_semantic_raw/labels_map</pylon_semantic_topic>\n"
+    "      <pylon_mask_topic>/simulation/ground_truth/cable_camera/pylon_instance_mask</pylon_mask_topic>\n"
+    "      <pylon_asset_uri>model://hcaa_pylon_setup/pylons.yaml</pylon_asset_uri>\n"
 )
 
-MODEL_CONFIG = f"""<?xml version="1.0"?>
+RADAR_F_PLUGIN = f"""    <!-- Radar-F: simulator-v2 IWR6843AOP, 50 deg forward from upward. -->
+    <plugin filename="iii_drone_mmwave_conductor_sensor_plugin" name="iii_drone::simulation::MmwaveConductorSensorPlugin">
+      <link_name>base_link</link_name>
+      <radar_model>AOP_FAST_POINT</radar_model>
+      <radar_instance>mmwave_forward</radar_instance>
+      <aop_config>{RADAR_CONFIG_URI}/RADAR_F.yaml</aop_config>
+      <radar_seed>2</radar_seed>
+      <topic>/sensor/mmwave_forward/points</topic>
+      <full_topic>/sensor/mmwave_forward/points_full</full_topic>
+      <label_topic>/simulation/ground_truth/mmwave_forward/conductor_labels</label_topic>
+      <frame_id>mmwave_forward</frame_id>
+      <camera_mask_topic>/simulation/ground_truth/cable_camera/conductor_instance_mask</camera_mask_topic>
+      <camera_image_topic>/sensor/cable_camera/image_raw</camera_image_topic>
+{CAMERA_TRUTH_SETTINGS}      <conductor_id_map_topic>/simulation/ground_truth/conductor_id_map</conductor_id_map_topic>
+      <conductor_asset_uri>model://hcaa_pylon_setup/conductors.yaml</conductor_asset_uri>
+      <sensor_pose>{RADAR_F_POSE}</sensor_pose>
+      <camera_pose>{CAMERA_POSE}</camera_pose>
+      <publish_camera>false</publish_camera>
+      <publish_drone_state>false</publish_drone_state>
+      <publish_static_geometry>false</publish_static_geometry>
+      <schedule_offset_ms>5.10112</schedule_offset_ms>
+      <peer_offset_ms>0.0</peer_offset_ms>
+      <peer_active_ms>4.10112</peer_active_ms>
+      <schedule_jitter_sigma_us>5.0</schedule_jitter_sigma_us>
+    </plugin>
+"""
+
+MODEL_CONFIG = """<?xml version="1.0"?>
 <model>
   <name>Drones4Safety DC-Drone (powerline SLAM evaluation)</name>
   <version>1.0</version>
   <sdf version='1.9'>model.sdf</sdf>
-  <description>D4S model with evaluator-only pylon truth, pylon radar returns and the finite radar FOV used for powerline SLAM evaluation.</description>
+  <description>D4S model with two simulator-v2 IWR6843AOP radars (upward and 50 deg forward), the cable camera at 20 deg from upward, and evaluator-only pylon truth, for powerline SLAM evaluation.</description>
 </model>
 """
 
@@ -101,6 +134,48 @@ def replace_once(text: str, old: str, new: str) -> str:
     if text.count(old) != 1:
         raise RuntimeError(f"Expected exactly one occurrence of {old!r} in the production asset.")
     return text.replace(old, new, 1)
+
+
+def render_radar_u_plugin(production_plugin: str) -> str:
+    """Production radar block switched to simulator-v2 Radar-U."""
+    block = replace_once(
+        production_plugin,
+        "      <link_name>base_link</link_name>\n",
+        "      <link_name>base_link</link_name>\n"
+        "      <radar_model>AOP_FAST_POINT</radar_model>\n"
+        "      <radar_instance>mmwave</radar_instance>\n"
+        f"      <aop_config>{RADAR_CONFIG_URI}/RADAR_U.yaml</aop_config>\n"
+        "      <radar_seed>1</radar_seed>\n",
+    )
+    block = replace_once(
+        block,
+        "      <camera_image_topic>/sensor/cable_camera/image_raw</camera_image_topic>\n",
+        "      <camera_image_topic>/sensor/cable_camera/image_raw</camera_image_topic>\n"
+        + CAMERA_TRUTH_SETTINGS
+        + "      <publish_camera_info>true</publish_camera_info>\n",
+    )
+    block = re.sub(
+        r"      <camera_pose>[^<]*</camera_pose>\n",
+        f"      <camera_pose>{CAMERA_POSE}</camera_pose>\n",
+        block,
+        count=1,
+    )
+    block = replace_once(
+        block,
+        "    </plugin>\n",
+        "      <publish_camera>true</publish_camera>\n"
+        "      <publish_drone_state>true</publish_drone_state>\n"
+        "      <publish_static_geometry>true</publish_static_geometry>\n"
+        "      <schedule_offset_ms>0.0</schedule_offset_ms>\n"
+        "      <peer_offset_ms>5.10112</peer_offset_ms>\n"
+        "      <peer_active_ms>12.3405</peer_active_ms>\n"
+        "      <schedule_jitter_sigma_us>5.0</schedule_jitter_sigma_us>\n"
+        "    </plugin>\n",
+    )
+    return (
+        "    <!-- Radar-U: simulator-v2 IWR6843AOP on the production upward mount. -->\n"
+        + block
+    )
 
 
 def render_variant_sdf() -> str:
@@ -113,11 +188,23 @@ def render_variant_sdf() -> str:
     if camera_start < 0:
         raise RuntimeError("Production model has no cable_camera sensor.")
     camera_end = source.index("</sensor>\n", camera_start) + len("</sensor>\n")
-    source = source[:camera_end] + SEMANTIC_CAMERA + source[camera_end:]
+    camera = source[camera_start:camera_end]
+    camera = replace_once(camera, PRODUCTION_CAMERA_POSE, f"        <pose>{CAMERA_POSE}</pose>\n")
+    camera = replace_once(
+        camera,
+        PRODUCTION_CAMERA_TOPIC,
+        PRODUCTION_CAMERA_TOPIC + "        <gz_frame_id>cable_camera</gz_frame_id>\n",
+    )
+    source = source[:camera_start] + camera + SEMANTIC_CAMERA + source[camera_end:]
 
-    for anchor, inserted in PLUGIN_INSERTIONS:
-        source = replace_once(source, anchor, anchor + inserted)
-    return source
+    radar_plugins = RADAR_PLUGIN.findall(source)
+    if len(radar_plugins) != 1:
+        raise RuntimeError("Expected exactly one mmWave sensor plugin in the production model.")
+    return replace_once(
+        source,
+        radar_plugins[0],
+        render_radar_u_plugin(radar_plugins[0]) + "\n" + RADAR_F_PLUGIN,
+    )
 
 
 def render_variant_airframe() -> str:
@@ -161,6 +248,12 @@ def check_variant() -> None:
     model = ET.parse(VARIANT_SDF).getroot().find(".//model")
     if model is None or model.get("name") != VARIANT_NAME:
         raise RuntimeError("Variant SDF has an unexpected model name.")
+    for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+        if not (VARIANT_MODEL / "radar" / name).is_file():
+            raise RuntimeError(f"Radar configuration radar/{name} is missing.")
+    scene = ASSET_ROOT / "world_models" / "hcaa_pylon_setup" / "radar" / "scene_scatterers_r22_v1.json"
+    if not scene.is_file():
+        raise RuntimeError("Radar scene world_models/hcaa_pylon_setup/radar is missing.")
     print(f"{VARIANT_NAME} matches the production model and airframe")
 
 

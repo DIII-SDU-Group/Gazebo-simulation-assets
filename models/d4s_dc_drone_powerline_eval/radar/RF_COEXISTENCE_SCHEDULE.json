@@ -1,0 +1,69 @@
+{
+  "artifact_type": "R21_DUAL_RADAR_RF_SCHEDULE",
+  "created_utc": "2026-09-29T05:42:19.518678+00:00",
+  "fits": true,
+  "frame_period_ms": 33.333,
+  "frame_rate_hz": 30.00030000300003,
+  "free_running_alternative": {
+    "frames_until_guard_consumed": 300.00300003000035,
+    "relative_drift_us_per_frame_worst": 3.3332999999999995,
+    "seconds_until_guard_consumed": 10.000000000000002,
+    "verdict": "REJECTED: independent crystals slide the windows into overlap within seconds"
+  },
+  "guard_ms": 1.0,
+  "interference_modes": {
+    "SCHEDULED": "no direct mutual interference; configured leakage/background only",
+    "VIOLATED_SCHEDULE": "victim chirps overlapping the aggressor active window receive a noise-floor rise delta_dB = 10*log10(1 + overlap_fraction * 10^(INR_dB/10)); equal-slope overlap may add a ghost; INR_dB default 25 (NEEDS_REAL_DATA_CALIBRATION)"
+  },
+  "per_radar_interframe_idle_ms": {
+    "radar_forward": 20.9925,
+    "radar_up": 29.231879999999997
+  },
+  "processing_headroom_ok": true,
+  "profile_freeze_sha256": {
+    "F": "27bfd323b0884e7ffe616e60368e7a30f27b7d73989c87956c2f26ffce308384",
+    "U": "d0a5917c9c57a63dd417afc5214eacfd3a8d1a4c1eacdd0fb52fec617ecb2c68"
+  },
+  "profiles": {
+    "radar_forward": "RADAR_F_PROFILE_v1",
+    "radar_up": "RADAR_U_PROFILE_v1"
+  },
+  "schedule_id": "DUAL_RADAR_RF_SCHEDULE_v1",
+  "schema_version": 1,
+  "source_time_semantics": "each radar's scan source time = its own frame start (trigger edge + configured delay) on the vehicle clock; scan_sequence independent per radar; emitted at frame end + processing latency (simulated latency 0)",
+  "tool": {
+    "fmcw_sha256": "6a155660464a3fcd960b8f187cfb2717b07717ddfefe69d159bc94c997117817",
+    "path": "/home/ffn/Workspace/powerline_slam/corridor_simulation/tools/r21_profile.py",
+    "sha256": "05247367afc63fb30e4a1896e50e0b77dcbf490e3ddeb4976e7b22d945351dd2"
+  },
+  "trigger": {
+    "jitter_model": {
+      "bound_us": 20.0,
+      "distribution": "gaussian",
+      "sigma_us": 5.0,
+      "status": "provisional"
+    },
+    "mechanism": "HARDWARE: Radar U free-runs (frameCfg triggerSelect 1); Radar F frameCfg triggerSelect 2 (SYNC_IN) with frame trigger delay 5.101 ms from the shared trigger edge; U SYNC_OUT or an external 30 Hz pulse drives both SYNC_IN lines",
+    "pin_availability": "SYNC_IN/SYNC_OUT are silicon pins (SWRS237C); exposure on the IWR6843AOPEVM header must be confirmed"
+  },
+  "windows_ms": {
+    "guard_1": [
+      4.10112,
+      5.10112
+    ],
+    "guard_2_and_idle": [
+      17.44162,
+      33.333
+    ],
+    "radar_forward": [
+      5.10112,
+      17.44162
+    ],
+    "radar_up": [
+      0.0,
+      4.10112
+    ]
+  },
+  "work_order": "WO-2026-09-29-001",
+  "wraparound_slack_ms": 14.891379999999998
+}
