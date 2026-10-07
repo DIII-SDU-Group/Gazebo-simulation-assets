@@ -36,6 +36,7 @@ airframe:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
@@ -221,20 +222,214 @@ def render_variant_airframe() -> str:
     )
 
 
-def rendered_files() -> dict[Path, str]:
+# ---------------------------------------------------------------------------
+# Sensor timing profiles (powerline_slam FUSION30 phase-stress simulation).
+#
+# The evaluation variant above is the nominal profile and is not changed by
+# anything below.  Each timing profile is one more model, selected explicitly
+# like the nominal one (PX4_SIM_MODEL=gz_d4s_dc_drone_powerline_eval_<profile>),
+# that differs from it only in *when* the radars sample relative to the camera.
+#
+# The cable camera and the evaluator pylon camera are Gazebo rendering sensors:
+# they sample at multiples of their 100 ms period on the simulation clock,
+# deterministically, and Gazebo offers no phase offset for them.  (Triggered
+# cameras were measured and rejected: the trigger is delivered asynchronously,
+# 4-5 % of the frames came one or more simulation steps off schedule and the
+# two cameras lost their common stamp in half of the frames.)  The camera phase
+# is therefore the fixed reference, 0, and a profile places the two radars on
+# the shared frame clock around it: only the radars' trigger offsets, the
+# matching peer windows and the trigger jitter change.  Radar profiles, plugin,
+# mounts, the cameras and everything else are those of the nominal model.
+#
+# Frame period.  The frozen radar profiles give the frame period as 33.333 ms,
+# three of which are 1 us short of the camera's 100 ms: on the nominal model
+# the radars drift 10 us/s against the camera, a millisecond every 100 s of
+# simulation time, so no phase relation holds for a flight.  A *locked* profile
+# therefore uses copies of the two radar configurations in which the frame
+# period is exactly one third of the camera period (33.333333... ms, 10 ppm
+# longer; nothing else differs), which keeps its phases for the whole run.  The
+# drift profile keeps the nominal 33.333 ms.
+#
+# Radar-U is active for 4.10112 ms and Radar-F for 12.3405 ms of the 33.333 ms
+# frame (radar/RF_COEXISTENCE_SCHEDULE.json, guard 1.0 ms).  A profile is
+# RF-valid when both guards between the two active windows, after the worst
+# trigger jitter, are at least 1.0 ms.
+RADAR_FRAME_MS = 33.333
+RADAR_U_ACTIVE_MS = 4.10112
+RADAR_F_ACTIVE_MS = 12.3405
+RF_GUARD_MS = 1.0
+CAMERA_PERIOD_MS = 100.0
+LOCKED_RADAR_FRAME_MS = CAMERA_PERIOD_MS / 3.0
+NOMINAL_JITTER_US = 5.0
+NOMINAL_PERIOD_LINE = "  frame_period_ms: 33.333\n"
+
+TIMING_PROFILES = {
+    # name: airframe id, Radar-U and Radar-F frame-start offsets (ms after the camera phase), trigger jitter sigma (us)
+    "aligned": {
+        "airframe": 99993, "radar_u_offset_ms": 0.0, "radar_f_offset_ms": 0.0, "jitter_us": NOMINAL_JITTER_US,
+        "interference": False, "locked": True,
+        "description": "all three sensors on one phase (control; the radars' active windows overlap, so this profile is "
+                       "not RF-valid and the mutual-interference model is switched off)",
+    },
+    "halfshift": {
+        "airframe": 99994, "radar_u_offset_ms": 2.0 * RADAR_FRAME_MS / 3.0, "radar_f_offset_ms": 5.0 * RADAR_FRAME_MS / 6.0,
+        "jitter_us": NOMINAL_JITTER_US, "interference": True, "locked": True,
+        "description": "half of the maximum separation: Radar-F one sixth of a frame after Radar-U, the camera one third "
+                       "of a frame after Radar-U",
+    },
+    "maxphase": {
+        "airframe": 99995, "radar_u_offset_ms": RADAR_FRAME_MS / 3.0, "radar_f_offset_ms": 2.0 * RADAR_FRAME_MS / 3.0,
+        "jitter_us": NOMINAL_JITTER_US, "interference": True, "locked": True,
+        "description": "maximum phase separation: camera, Radar-U and Radar-F one third of a frame apart",
+    },
+    "maxphase_drift": {
+        "airframe": 99992, "radar_u_offset_ms": RADAR_FRAME_MS / 3.0, "radar_f_offset_ms": 2.0 * RADAR_FRAME_MS / 3.0,
+        "jitter_us": 300.0, "interference": True, "locked": False,
+        "description": "maximum phase separation at simulation time zero with the nominal 33.333 ms radar frame (the radars "
+                       "drift 10 us/s against the camera) and a deterministic bounded trigger jitter (sigma 300 us, clamped "
+                       "to +-4 sigma) on both radars",
+    },
+}
+
+
+def profile_name(profile: str) -> str:
+    return f"{VARIANT_NAME}_{profile}"
+
+
+def _circular(a: float, b: float, frame: float = RADAR_FRAME_MS) -> float:
+    d = abs(a - b) % frame
+    return min(d, frame - d)
+
+
+def profile_schedule(profile: str) -> dict:
+    """The profile's source-time and RF schedule; raises when an RF-valid profile violates the guard."""
+    p = TIMING_PROFILES[profile]
+    frame = LOCKED_RADAR_FRAME_MS if p["locked"] else RADAR_FRAME_MS
+    u0, f0 = p["radar_u_offset_ms"], p["radar_f_offset_ms"]
+    u = (u0, u0 + RADAR_U_ACTIVE_MS)
+    f = (f0, f0 + RADAR_F_ACTIVE_MS)
+    guards = ((f[0] - u[1]) % frame, (u[0] - f[1]) % frame)
+    overlap = (f0 - u0) % frame < RADAR_U_ACTIVE_MS or (u0 - f0) % frame < RADAR_F_ACTIVE_MS
+    worst_jitter_ms = 2 * 4.0 * p["jitter_us"] * 1e-3
+    rf_valid = (not overlap) and min(guards) - worst_jitter_ms >= RF_GUARD_MS
+    if p["interference"] and not rf_valid:
+        raise RuntimeError(f"timing profile {profile} violates the {RF_GUARD_MS} ms RF guard: {guards}")
+    separations = {"camera_radar_u": _circular(0.0, u0, frame), "camera_radar_f": _circular(0.0, f0, frame),
+                   "radar_u_radar_f": _circular(u0, f0, frame)}
     return {
+        "profile": profile, "model": profile_name(profile), "description": p["description"],
+        "radar_frame_period_ms": frame, "radar_frame_period_locked_to_camera": bool(p["locked"]),
+        "radar_drift_against_camera_us_per_s": 0.0 if p["locked"] else (CAMERA_PERIOD_MS - 3.0 * RADAR_FRAME_MS) / CAMERA_PERIOD_MS * 1e6,
+        "camera_period_ms": CAMERA_PERIOD_MS,
+        "camera": {"offset_ms": 0.0, "control": "Gazebo rendering sensor, frames at multiples of the camera period (the phase reference)"},
+        "radar_u": {"offset_ms": u0, "active_window_ms": list(u)},
+        "radar_f": {"offset_ms": f0, "active_window_ms": list(f)},
+        "circular_separation_ms": separations, "minimum_circular_separation_ms": min(separations.values()),
+        "maximum_possible_minimum_separation_ms": frame / 3.0,
+        "trigger_jitter_sigma_us": p["jitter_us"], "trigger_jitter_bound_us": 4.0 * p["jitter_us"],
+        "rf_guards_ms": list(guards), "rf_guard_required_ms": RF_GUARD_MS,
+        "rf_guard_after_worst_jitter_ms": min(guards) - worst_jitter_ms, "rf_active_windows_overlap": overlap, "rf_valid": rf_valid,
+        "mutual_interference_model": p["interference"],
+        "sampling": "each sensor samples at the first simulation step at or after its frame start; the world step "
+                    "quantizes the realized stamps",
+    }
+
+
+def _ms(value: float) -> str:
+    return repr(round(float(value), 9))
+
+
+def render_profile_sdf(profile: str) -> str:
+    p = TIMING_PROFILES[profile]
+    source = render_variant_sdf()
+    source = replace_once(source, f"<model name='{VARIANT_NAME}'>", f"<model name='{profile_name(profile)}'>")
+    if p["locked"]:                       # the profile's own radar configurations (exact frame period)
+        for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+            source = replace_once(source, f"<aop_config>{RADAR_CONFIG_URI}/{name}</aop_config>",
+                                  f"<aop_config>model://{profile_name(profile)}/radar/{name}</aop_config>")
+    f_active = RADAR_F_ACTIVE_MS if p["interference"] else 0.0
+    u_active = RADAR_U_ACTIVE_MS if p["interference"] else 0.0
+    source = replace_once(
+        source,
+        "      <schedule_offset_ms>0.0</schedule_offset_ms>\n"
+        "      <peer_offset_ms>5.10112</peer_offset_ms>\n"
+        "      <peer_active_ms>12.3405</peer_active_ms>\n"
+        "      <schedule_jitter_sigma_us>5.0</schedule_jitter_sigma_us>\n",
+        f"      <schedule_offset_ms>{_ms(p['radar_u_offset_ms'])}</schedule_offset_ms>\n"
+        f"      <peer_offset_ms>{_ms(p['radar_f_offset_ms'])}</peer_offset_ms>\n"
+        f"      <peer_active_ms>{_ms(f_active)}</peer_active_ms>\n"
+        f"      <schedule_jitter_sigma_us>{_ms(p['jitter_us'])}</schedule_jitter_sigma_us>\n",
+    )
+    return replace_once(
+        source,
+        "      <schedule_offset_ms>5.10112</schedule_offset_ms>\n"
+        "      <peer_offset_ms>0.0</peer_offset_ms>\n"
+        "      <peer_active_ms>4.10112</peer_active_ms>\n"
+        "      <schedule_jitter_sigma_us>5.0</schedule_jitter_sigma_us>\n",
+        f"      <schedule_offset_ms>{_ms(p['radar_f_offset_ms'])}</schedule_offset_ms>\n"
+        f"      <peer_offset_ms>{_ms(p['radar_u_offset_ms'])}</peer_offset_ms>\n"
+        f"      <peer_active_ms>{_ms(u_active)}</peer_active_ms>\n"
+        f"      <schedule_jitter_sigma_us>{_ms(p['jitter_us'])}</schedule_jitter_sigma_us>\n",
+    )
+
+
+def render_profile_airframe(profile: str) -> str:
+    source = render_variant_airframe()
+    source = replace_once(
+        source,
+        "# @name Drones4Safety DC drone (powerline SLAM evaluation)\n",
+        f"# @name Drones4Safety DC drone (powerline SLAM evaluation, sensor timing profile {profile})\n",
+    )
+    return replace_once(
+        source,
+        f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={VARIANT_NAME}}}\n",
+        f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={profile_name(profile)}}}\n",
+    )
+
+
+def render_profile_config(profile: str) -> str:
+    return replace_once(
+        MODEL_CONFIG,
+        "  <name>Drones4Safety DC-Drone (powerline SLAM evaluation)</name>\n",
+        f"  <name>Drones4Safety DC-Drone (powerline SLAM evaluation, timing profile {profile})</name>\n",
+    )
+
+
+def profile_files(profile: str) -> dict[Path, str]:
+    model = ASSET_ROOT / "models" / profile_name(profile)
+    airframe = ASSET_ROOT / "init.d-posix_airframes" / f"{TIMING_PROFILES[profile]['airframe']}_gz_{profile_name(profile)}"
+    files = {
+        model / "model.sdf": render_profile_sdf(profile),
+        model / "model.config": render_profile_config(profile),
+        model / "TIMING_PROFILE.json": json.dumps(profile_schedule(profile), indent=2, sort_keys=True) + "\n",
+        airframe: render_profile_airframe(profile),
+    }
+    if TIMING_PROFILES[profile]["locked"]:
+        for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+            nominal = (VARIANT_MODEL / "radar" / name).read_text()
+            files[model / "radar" / name] = replace_once(nominal, NOMINAL_PERIOD_LINE,
+                                                         f"  frame_period_ms: {LOCKED_RADAR_FRAME_MS!r}\n")
+    return files
+
+
+def rendered_files() -> dict[Path, str]:
+    files = {
         VARIANT_SDF: render_variant_sdf(),
         VARIANT_CONFIG: MODEL_CONFIG,
         VARIANT_AIRFRAME: render_variant_airframe(),
     }
+    for profile in TIMING_PROFILES:
+        files.update(profile_files(profile))
+    return files
 
 
 def write_variant() -> None:
-    VARIANT_MODEL.mkdir(parents=True, exist_ok=True)
     for path, text in rendered_files().items():
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
+        if path.parent.name == "init.d-posix_airframes":
+            path.chmod(SOURCE_AIRFRAME.stat().st_mode)
         print(f"Wrote {path.relative_to(ASSET_ROOT)}")
-    VARIANT_AIRFRAME.chmod(SOURCE_AIRFRAME.stat().st_mode)
 
 
 def check_variant() -> None:
@@ -254,7 +449,14 @@ def check_variant() -> None:
     scene = ASSET_ROOT / "world_models" / "hcaa_pylon_setup" / "radar" / "scene_scatterers_r22_v1.json"
     if not scene.is_file():
         raise RuntimeError("Radar scene world_models/hcaa_pylon_setup/radar is missing.")
-    print(f"{VARIANT_NAME} matches the production model and airframe")
+    nominal = ET.parse(VARIANT_SDF).getroot()
+    cameras = lambda root: [ET.tostring(x) for x in root.iter("sensor") if x.get("name") in ("cable_camera", "pylon_semantic_camera")]  # noqa: E731
+    for profile in TIMING_PROFILES:
+        root = ET.parse(ASSET_ROOT / "models" / profile_name(profile) / "model.sdf").getroot()
+        if cameras(root) != cameras(nominal) or len(cameras(root)) != 2:
+            raise RuntimeError(f"timing profile {profile}: the cameras must be those of the nominal model.")
+        profile_schedule(profile)
+    print(f"{VARIANT_NAME} and its timing profiles match the production model and airframe")
 
 
 def main() -> None:

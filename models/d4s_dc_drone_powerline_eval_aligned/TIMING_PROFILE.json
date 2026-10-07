@@ -1,0 +1,46 @@
+{
+  "camera": {
+    "control": "Gazebo rendering sensor, frames at multiples of the camera period (the phase reference)",
+    "offset_ms": 0.0
+  },
+  "camera_period_ms": 100.0,
+  "circular_separation_ms": {
+    "camera_radar_f": 0.0,
+    "camera_radar_u": 0.0,
+    "radar_u_radar_f": 0.0
+  },
+  "description": "all three sensors on one phase (control; the radars' active windows overlap, so this profile is not RF-valid and the mutual-interference model is switched off)",
+  "maximum_possible_minimum_separation_ms": 11.111111111111112,
+  "minimum_circular_separation_ms": 0.0,
+  "model": "d4s_dc_drone_powerline_eval_aligned",
+  "mutual_interference_model": false,
+  "profile": "aligned",
+  "radar_drift_against_camera_us_per_s": 0.0,
+  "radar_f": {
+    "active_window_ms": [
+      0.0,
+      12.3405
+    ],
+    "offset_ms": 0.0
+  },
+  "radar_frame_period_locked_to_camera": true,
+  "radar_frame_period_ms": 33.333333333333336,
+  "radar_u": {
+    "active_window_ms": [
+      0.0,
+      4.10112
+    ],
+    "offset_ms": 0.0
+  },
+  "rf_active_windows_overlap": true,
+  "rf_guard_after_worst_jitter_ms": 20.952833333333338,
+  "rf_guard_required_ms": 1.0,
+  "rf_guards_ms": [
+    29.232213333333334,
+    20.992833333333337
+  ],
+  "rf_valid": false,
+  "sampling": "each sensor samples at the first simulation step at or after its frame start; the world step quantizes the realized stamps",
+  "trigger_jitter_bound_us": 20.0,
+  "trigger_jitter_sigma_us": 5.0
+}

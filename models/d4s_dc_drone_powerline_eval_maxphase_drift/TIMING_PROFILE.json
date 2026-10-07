@@ -1,0 +1,46 @@
+{
+  "camera": {
+    "control": "Gazebo rendering sensor, frames at multiples of the camera period (the phase reference)",
+    "offset_ms": 0.0
+  },
+  "camera_period_ms": 100.0,
+  "circular_separation_ms": {
+    "camera_radar_f": 11.111,
+    "camera_radar_u": 11.110999999999999,
+    "radar_u_radar_f": 11.110999999999999
+  },
+  "description": "maximum phase separation at simulation time zero with the nominal 33.333 ms radar frame (the radars drift 10 us/s against the camera) and a deterministic bounded trigger jitter (sigma 300 us, clamped to +-4 sigma) on both radars",
+  "maximum_possible_minimum_separation_ms": 11.110999999999999,
+  "minimum_circular_separation_ms": 11.110999999999999,
+  "model": "d4s_dc_drone_powerline_eval_maxphase_drift",
+  "mutual_interference_model": true,
+  "profile": "maxphase_drift",
+  "radar_drift_against_camera_us_per_s": 10.000000000047748,
+  "radar_f": {
+    "active_window_ms": [
+      22.221999999999998,
+      34.5625
+    ],
+    "offset_ms": 22.221999999999998
+  },
+  "radar_frame_period_locked_to_camera": false,
+  "radar_frame_period_ms": 33.333,
+  "radar_u": {
+    "active_window_ms": [
+      11.110999999999999,
+      15.212119999999999
+    ],
+    "offset_ms": 11.110999999999999
+  },
+  "rf_active_windows_overlap": false,
+  "rf_guard_after_worst_jitter_ms": 4.609879999999999,
+  "rf_guard_required_ms": 1.0,
+  "rf_guards_ms": [
+    7.009879999999999,
+    9.881499999999996
+  ],
+  "rf_valid": true,
+  "sampling": "each sensor samples at the first simulation step at or after its frame start; the world step quantizes the realized stamps",
+  "trigger_jitter_bound_us": 1200.0,
+  "trigger_jitter_sigma_us": 300.0
+}
