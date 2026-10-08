@@ -412,6 +412,69 @@ def profile_files(profile: str) -> dict[Path, str]:
     return files
 
 
+# ---------------------------------------------------------------------------
+# Long-operation profiles (powerline_slam WO-2026-10-08-001).
+#
+# The evaluation models carry a truth-only segmentation sensor
+# (pylon_semantic_camera) for the evaluator's pylon labels.  With it the Gazebo
+# render thread costs more per simulated second the longer the simulation runs
+# (stock gz-rendering; the real-time factor falls from 0.95 to 0.61 in an hour).
+# A long-operation profile is one more model, selected explicitly like every
+# other, that is its base timing profile without that one sensor: the radars,
+# the RGB camera, the IMU and every other vehicle sensor, their poses, rates,
+# source-time schedule, RF schedule, radar configurations and noise are those
+# of the base profile.  The radar plugin is told that there is no segmentation
+# source (an empty pylon_semantic_topic), so it creates no pylon-frame truth
+# topic.  A long-operation profile carries no pixel-exact pylon truth and is
+# not a model for evaluator scoring that needs it; the evaluation models above
+# are not changed by anything below.
+LONG_OPERATION_PROFILES = {
+    # name: base timing profile, airframe id
+    "maxphase_longrun": {"base": "maxphase", "airframe": 99991},
+}
+PYLON_SEMANTIC_SETTING = (
+    "      <pylon_semantic_topic>/simulation/ground_truth/cable_camera/pylon_semantic_raw/labels_map</pylon_semantic_topic>\n"
+)
+NO_PYLON_SEMANTIC_SETTING = "      <pylon_semantic_topic></pylon_semantic_topic>\n"
+
+
+def render_long_operation_sdf(profile: str) -> str:
+    base = LONG_OPERATION_PROFILES[profile]["base"]
+    source = render_profile_sdf(base)
+    source = replace_once(source, f"<model name='{profile_name(base)}'>", f"<model name='{profile_name(profile)}'>")
+    source = replace_once(source, SEMANTIC_CAMERA, "")
+    if PYLON_SEMANTIC_SETTING not in source:
+        raise RuntimeError("The base profile names no pylon segmentation topic.")
+    source = source.replace(PYLON_SEMANTIC_SETTING, NO_PYLON_SEMANTIC_SETTING)   # both radar plugin instances carry the setting
+    if TIMING_PROFILES[base]["locked"]:   # the profile's own copies of the base profile's radar configurations
+        for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+            source = replace_once(source, f"<aop_config>model://{profile_name(base)}/radar/{name}</aop_config>",
+                                  f"<aop_config>model://{profile_name(profile)}/radar/{name}</aop_config>")
+    return source
+
+
+def long_operation_files(profile: str) -> dict[Path, str]:
+    base = LONG_OPERATION_PROFILES[profile]["base"]
+    model = ASSET_ROOT / "models" / profile_name(profile)
+    airframe = ASSET_ROOT / "init.d-posix_airframes" / f"{LONG_OPERATION_PROFILES[profile]['airframe']}_gz_{profile_name(profile)}"
+    schedule = dict(profile_schedule(base), profile=profile, model=profile_name(profile), base_profile=base,
+                    long_operation={"omitted_sensor": "pylon_semantic_camera", "pylon_frame_truth": False})
+    base_airframe = render_profile_airframe(base)
+    files = {
+        model / "model.sdf": render_long_operation_sdf(profile),
+        model / "model.config": replace_once(
+            render_profile_config(base), f"timing profile {base})</name>", f"long-operation profile {profile})</name>"),
+        model / "TIMING_PROFILE.json": json.dumps(schedule, indent=2, sort_keys=True) + "\n",
+        airframe: replace_once(
+            replace_once(base_airframe, f"sensor timing profile {base})", f"long-operation profile {profile})"),
+            f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={profile_name(base)}}}\n", f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={profile_name(profile)}}}\n"),
+    }
+    if TIMING_PROFILES[base]["locked"]:
+        for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+            files[model / "radar" / name] = profile_files(base)[ASSET_ROOT / "models" / profile_name(base) / "radar" / name]
+    return files
+
+
 def rendered_files() -> dict[Path, str]:
     files = {
         VARIANT_SDF: render_variant_sdf(),
@@ -420,6 +483,8 @@ def rendered_files() -> dict[Path, str]:
     }
     for profile in TIMING_PROFILES:
         files.update(profile_files(profile))
+    for profile in LONG_OPERATION_PROFILES:
+        files.update(long_operation_files(profile))
     return files
 
 
@@ -456,7 +521,25 @@ def check_variant() -> None:
         if cameras(root) != cameras(nominal) or len(cameras(root)) != 2:
             raise RuntimeError(f"timing profile {profile}: the cameras must be those of the nominal model.")
         profile_schedule(profile)
-    print(f"{VARIANT_NAME} and its timing profiles match the production model and airframe")
+    for profile, spec in LONG_OPERATION_PROFILES.items():
+        # a long-operation profile is its base profile without the segmentation sensor: nothing else may differ
+        base_text = (ASSET_ROOT / "models" / profile_name(spec["base"]) / "model.sdf").read_text()
+        text = (ASSET_ROOT / "models" / profile_name(profile) / "model.sdf").read_text()
+        expected = base_text.replace(profile_name(spec["base"]), profile_name(profile)).replace(SEMANTIC_CAMERA, "").replace(
+            PYLON_SEMANTIC_SETTING, NO_PYLON_SEMANTIC_SETTING)
+        if text != expected or SEMANTIC_CAMERA not in base_text or PYLON_SEMANTIC_SETTING not in base_text:
+            raise RuntimeError(f"long-operation profile {profile}: the model must be {spec['base']} without the segmentation sensor only.")
+        root = ET.parse(ASSET_ROOT / "models" / profile_name(profile) / "model.sdf").getroot()
+        base_root = ET.parse(ASSET_ROOT / "models" / profile_name(spec["base"]) / "model.sdf").getroot()
+        sensors = lambda r: {x.get("name"): ET.tostring(x).strip() for x in r.iter("sensor")}  # noqa: E731  (without the tail whitespace)
+        kept = {k: v for k, v in sensors(base_root).items() if k != "pylon_semantic_camera"}
+        if sensors(root) != kept or "pylon_semantic_camera" in sensors(root):
+            raise RuntimeError(f"long-operation profile {profile}: every sensor but pylon_semantic_camera must be the base profile's.")
+        for name in ("RADAR_U.yaml", "RADAR_F.yaml"):
+            if TIMING_PROFILES[spec["base"]]["locked"] and (ASSET_ROOT / "models" / profile_name(profile) / "radar" / name).read_bytes() != (
+                    ASSET_ROOT / "models" / profile_name(spec["base"]) / "radar" / name).read_bytes():
+                raise RuntimeError(f"long-operation profile {profile}: radar/{name} must be the base profile's.")
+    print(f"{VARIANT_NAME}, its timing profiles and its long-operation profiles match the production model and airframe")
 
 
 def main() -> None:
