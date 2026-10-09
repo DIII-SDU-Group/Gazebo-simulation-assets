@@ -475,6 +475,77 @@ def long_operation_files(profile: str) -> dict[Path, str]:
     return files
 
 
+# ---------------------------------------------------------------------------
+# Camera-mount profiles (powerline_slam WO-2026-10-09-001).
+#
+# A camera-mount profile is one more model, selected explicitly like every
+# other, that is its base model (a timing profile or a long-operation profile)
+# with the cable camera at another pitch about the same mount point.  The RGB
+# camera, the evaluator-only pylon segmentation camera of an evaluation base
+# and the camera pose both radar plugins use for the evaluator's camera truth
+# all carry the one new pose; the camera intrinsics, both radars with their
+# mounts, configurations, source-time and RF schedule, every other sensor and
+# the vehicle are the base model's.  The models above (camera 20 deg from
+# upward, layout C20) are not changed by anything below.
+C25_CAMERA_POSE = "0 -0.215 0.3 0 -1.1344640137963142 0"     # 25 deg forward from upward (powerline_slam layout C25)
+CAMERA_MOUNT_PROFILES = {
+    # name: base model profile, airframe id, camera pose, mount label
+    "c25_maxphase": {"base": "maxphase", "airframe": 99990, "camera_pose": C25_CAMERA_POSE, "mount": "C25"},
+    "c25_maxphase_drift": {"base": "maxphase_drift", "airframe": 99989, "camera_pose": C25_CAMERA_POSE, "mount": "C25"},
+    "c25_maxphase_longrun": {"base": "maxphase_longrun", "airframe": 99988, "camera_pose": C25_CAMERA_POSE, "mount": "C25"},
+}
+
+
+def _base_files(base: str) -> dict[Path, str]:
+    return long_operation_files(base) if base in LONG_OPERATION_PROFILES else profile_files(base)
+
+
+def _camera_pose_count(base: str) -> int:
+    # the RGB sensor and the pose in each of the two radar plugins, plus the segmentation sensor of an evaluation base
+    return 3 if base in LONG_OPERATION_PROFILES else 4
+
+
+def render_camera_mount_sdf(profile: str) -> str:
+    spec = CAMERA_MOUNT_PROFILES[profile]
+    base = spec["base"]
+    source = _base_files(base)[ASSET_ROOT / "models" / profile_name(base) / "model.sdf"]
+    source = replace_once(source, f"<model name='{profile_name(base)}'>", f"<model name='{profile_name(profile)}'>")
+    if source.count(CAMERA_POSE) != _camera_pose_count(base):
+        raise RuntimeError(f"camera-mount profile {profile}: the base model carries the camera pose {source.count(CAMERA_POSE)} times.")
+    source = source.replace(CAMERA_POSE, spec["camera_pose"])
+    own_radar = f"model://{profile_name(base)}/radar/"
+    if own_radar in source:               # a base with its own radar configurations: this profile's own copies of them
+        source = source.replace(own_radar, f"model://{profile_name(profile)}/radar/")
+    return source
+
+
+def camera_mount_files(profile: str) -> dict[Path, str]:
+    spec = CAMERA_MOUNT_PROFILES[profile]
+    base = spec["base"]
+    base_files = _base_files(base)
+    base_model = ASSET_ROOT / "models" / profile_name(base)
+    model = ASSET_ROOT / "models" / profile_name(profile)
+    base_airframe = next(text for path, text in base_files.items() if path.parent.name == "init.d-posix_airframes")
+    schedule = dict(json.loads(base_files[base_model / "TIMING_PROFILE.json"]), profile=profile, model=profile_name(profile),
+                    camera_mount={"label": spec["mount"], "base_model": profile_name(base), "pose_xyz_rpy": spec["camera_pose"],
+                                  "base_pose_xyz_rpy": CAMERA_POSE})
+    config = base_files[base_model / "model.config"]
+    name_end = config.index(")</name>")
+    airframe_name_end = base_airframe.index(")\n", base_airframe.index("# @name "))
+    files = {
+        model / "model.sdf": render_camera_mount_sdf(profile),
+        model / "model.config": config[:name_end] + f", camera mount {spec['mount']}" + config[name_end:],
+        model / "TIMING_PROFILE.json": json.dumps(schedule, indent=2, sort_keys=True) + "\n",
+        ASSET_ROOT / "init.d-posix_airframes" / f"{spec['airframe']}_gz_{profile_name(profile)}": replace_once(
+            base_airframe[:airframe_name_end] + f", camera mount {spec['mount']}" + base_airframe[airframe_name_end:],
+            f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={profile_name(base)}}}\n", f"PX4_SIM_MODEL=${{PX4_SIM_MODEL:={profile_name(profile)}}}\n"),
+    }
+    for path, text in base_files.items():
+        if path.parent == base_model / "radar":
+            files[model / "radar" / path.name] = text
+    return files
+
+
 def rendered_files() -> dict[Path, str]:
     files = {
         VARIANT_SDF: render_variant_sdf(),
@@ -485,6 +556,8 @@ def rendered_files() -> dict[Path, str]:
         files.update(profile_files(profile))
     for profile in LONG_OPERATION_PROFILES:
         files.update(long_operation_files(profile))
+    for profile in CAMERA_MOUNT_PROFILES:
+        files.update(camera_mount_files(profile))
     return files
 
 
@@ -539,7 +612,35 @@ def check_variant() -> None:
             if TIMING_PROFILES[spec["base"]]["locked"] and (ASSET_ROOT / "models" / profile_name(profile) / "radar" / name).read_bytes() != (
                     ASSET_ROOT / "models" / profile_name(spec["base"]) / "radar" / name).read_bytes():
                 raise RuntimeError(f"long-operation profile {profile}: radar/{name} must be the base profile's.")
-    print(f"{VARIANT_NAME}, its timing profiles and its long-operation profiles match the production model and airframe")
+    for profile, spec in CAMERA_MOUNT_PROFILES.items():
+        # a camera-mount profile is its base model with the camera pose replaced: nothing else may differ
+        base = spec["base"]
+        base_text = (ASSET_ROOT / "models" / profile_name(base) / "model.sdf").read_text()
+        text = (ASSET_ROOT / "models" / profile_name(profile) / "model.sdf").read_text()
+        if base_text.count(CAMERA_POSE) != _camera_pose_count(base) or spec["camera_pose"] in base_text or CAMERA_POSE in text:
+            raise RuntimeError(f"camera-mount profile {profile}: unexpected camera poses in the base model or the profile.")
+        if text != base_text.replace(profile_name(base), profile_name(profile)).replace(CAMERA_POSE, spec["camera_pose"]):
+            raise RuntimeError(f"camera-mount profile {profile}: the model must be {base} with the camera pose replaced only.")
+        root = ET.parse(ASSET_ROOT / "models" / profile_name(profile) / "model.sdf").getroot()
+        base_root = ET.parse(ASSET_ROOT / "models" / profile_name(base) / "model.sdf").getroot()
+
+        def by_name(r, without_pose):  # noqa: ANN001
+            out = {}
+            for sensor in r.iter("sensor"):
+                body = ET.tostring(sensor).decode().strip()
+                out[sensor.get("name")] = body.replace(f"<pose>{without_pose}</pose>", "<pose/>") if sensor.get("name") in (
+                    "cable_camera", "pylon_semantic_camera") else body
+            return out
+        if by_name(root, spec["camera_pose"]) != by_name(base_root, CAMERA_POSE):
+            raise RuntimeError(f"camera-mount profile {profile}: every sensor but the camera pose must be the base model's.")
+        poses = [x.findtext("pose") for x in root.iter("sensor") if x.get("name") in ("cable_camera", "pylon_semantic_camera")]
+        poses += [x.findtext("camera_pose") for x in root.iter("plugin") if x.find("camera_pose") is not None]
+        if len(poses) != _camera_pose_count(base) or set(poses) != {spec["camera_pose"]}:
+            raise RuntimeError(f"camera-mount profile {profile}: the camera sensors and both radar plugins must carry the one new pose.")
+        for path in sorted((ASSET_ROOT / "models" / profile_name(base) / "radar").glob("*.yaml")):
+            if (ASSET_ROOT / "models" / profile_name(profile) / "radar" / path.name).read_bytes() != path.read_bytes():
+                raise RuntimeError(f"camera-mount profile {profile}: radar/{path.name} must be the base model's.")
+    print(f"{VARIANT_NAME}, its timing profiles, its long-operation profiles and its camera-mount profiles match the production model and airframe")
 
 
 def main() -> None:

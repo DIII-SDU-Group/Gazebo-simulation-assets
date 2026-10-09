@@ -1,0 +1,70 @@
+# r22 WO-2026-09-29-002 simulator-v2 model configuration for radar_forward (DEVELOPMENT)
+# carried from corridor_simulation/config/r21/radar_v2/RADAR_F_v1.yaml sha256 eaf6b57c8ede29fee1de2a1a500c39876808b7ce9e3f72e86466e6b19af2c0c0; profile/antenna/processing unchanged.
+# BACKLOG02 revision (P/02_PYLON_MODEL_REVISION.json): scene = r22 scene file with extracted pylon lattice members;
+# pylon member specular glints added (thin-cylinder broadside RCS at the perpendicular foot point, as for conductors).
+# All other profile/antenna/calibration/processing values are the r21 defaults. Uncalibrated physical values are
+# listed as NEEDS_REAL_DATA_CALIBRATION in P/02_PYLON_MODEL_REVISION.json.
+# III port: copied from powerline_slam corridor_simulation/config/r22/radar_v2 (see ../radar/PROVENANCE.json);
+# only scatterers_path changed, from an absolute host path to a model:// URI.
+mode: "AOP_FAST_POINT"
+profile_id: "RADAR_F_v1"
+scene_seed: 21029001
+scatterers_path: "model://hcaa_pylon_setup/radar/scene_scatterers_r22_v1.json"
+profile:
+  start_freq_ghz: 60.0
+  idle_us: 50.0
+  adc_start_us: 6.0
+  ramp_end_us: 32.27
+  slope_mhz_per_us: 65.0
+  sample_rate_ksps: 11000.0
+  frame_period_ms: 33.333333333333336
+  num_adc_samples: 256
+  num_loops: 50
+  num_tx: 3
+  num_rx: 4
+antenna:
+  angles_deg: [-80.0, -70.0, -60.0, -50.0, -40.0, -30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0]
+  tx_azimuth: [-16.5, -12.0, -9.5, -7.0, -4.5, -2.5, -1.0, 0.0, 0.0, -0.3, -1.0, -2.0, -4.0, -6.0, -9.5, -13.0, -17.0]
+  tx_elevation: [-16.0, -9.5, -7.0, -5.5, -5.0, -4.0, -2.0, -0.5, 0.0, -0.5, -1.5, -3.0, -4.5, -6.0, -7.5, -8.5, -15.5]
+  rx_azimuth: [-13.0, -8.5, -6.0, -4.5, -3.0, -1.5, -0.5, 0.0, -0.3, -0.3, -0.5, -1.0, -2.5, -4.0, -5.5, -8.0, -12.5]
+  rx_elevation: [-16.0, -8.0, -5.0, -3.5, -2.5, -1.5, -0.5, 0.0, -0.3, -0.5, -1.0, -1.5, -3.0, -5.0, -6.0, -8.0, -16.0]
+calibration:
+  eirp_dbm: 16.0
+  einf_db: 9.0
+  implementation_loss_db: 10.0
+  snr_offset_db: 0.0
+  conductor_radius_m: 0.0125
+  conductor_specular_scale_db: 0.0
+  conductor_specular_fading_db: 1.0
+  conductor_diffuse_dbsm_per_m: -25.0
+  conductor_diffuse_aspect_width_deg: 30.0
+  conductor_diffuse_step_fraction: 0.25
+  pylon_reflectivity_db: -3.0
+  pylon_lognormal_db: 4.0
+  structure_reflectivity_db: -12.0
+  structure_lognormal_db: 5.0
+  terrain_gamma_db: -12.0
+  false_alarms_per_frame: 0.5
+  multipath_ground_reflection_db: -10.0
+  multipath_enabled: true
+  angle_floor_deg: 1.5
+  range_bias_m: 0.0
+  noise_reference_db: 40.0
+  interference_inr_db: 25.0
+  terrain_z_m: -0.9524341
+  cull_margin_m: 1.0
+  pylon_member_scale_db: 0.0
+  pylon_member_lognormal_db: 3.0
+  pylon_member_fading_db: 1.0
+processing:
+  cfar_threshold_db: 15.0
+  cfar_range_window: 8
+  cfar_range_guard: 4
+  cfar_doppler_window: 4
+  cfar_doppler_guard: 2
+  peak_grouping: true
+  multi_object_beamforming: 0.5
+  min_range_m: 0.25
+  max_range_m: 0.0
+  max_points: 500
+  cfar_domain: "linear"

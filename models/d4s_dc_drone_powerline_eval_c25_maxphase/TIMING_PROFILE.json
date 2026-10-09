@@ -1,0 +1,52 @@
+{
+  "camera": {
+    "control": "Gazebo rendering sensor, frames at multiples of the camera period (the phase reference)",
+    "offset_ms": 0.0
+  },
+  "camera_mount": {
+    "base_model": "d4s_dc_drone_powerline_eval_maxphase",
+    "base_pose_xyz_rpy": "0 -0.215 0.3 0 -1.2217304763960306 0",
+    "label": "C25",
+    "pose_xyz_rpy": "0 -0.215 0.3 0 -1.1344640137963142 0"
+  },
+  "camera_period_ms": 100.0,
+  "circular_separation_ms": {
+    "camera_radar_f": 11.111333333333338,
+    "camera_radar_u": 11.110999999999999,
+    "radar_u_radar_f": 11.110999999999999
+  },
+  "description": "maximum phase separation: camera, Radar-U and Radar-F one third of a frame apart",
+  "maximum_possible_minimum_separation_ms": 11.111111111111112,
+  "minimum_circular_separation_ms": 11.110999999999999,
+  "model": "d4s_dc_drone_powerline_eval_c25_maxphase",
+  "mutual_interference_model": true,
+  "profile": "c25_maxphase",
+  "radar_drift_against_camera_us_per_s": 0.0,
+  "radar_f": {
+    "active_window_ms": [
+      22.221999999999998,
+      34.5625
+    ],
+    "offset_ms": 22.221999999999998
+  },
+  "radar_frame_period_locked_to_camera": true,
+  "radar_frame_period_ms": 33.333333333333336,
+  "radar_u": {
+    "active_window_ms": [
+      11.110999999999999,
+      15.212119999999999
+    ],
+    "offset_ms": 11.110999999999999
+  },
+  "rf_active_windows_overlap": false,
+  "rf_guard_after_worst_jitter_ms": 6.969879999999999,
+  "rf_guard_required_ms": 1.0,
+  "rf_guards_ms": [
+    7.009879999999999,
+    9.881833333333333
+  ],
+  "rf_valid": true,
+  "sampling": "each sensor samples at the first simulation step at or after its frame start; the world step quantizes the realized stamps",
+  "trigger_jitter_bound_us": 20.0,
+  "trigger_jitter_sigma_us": 5.0
+}

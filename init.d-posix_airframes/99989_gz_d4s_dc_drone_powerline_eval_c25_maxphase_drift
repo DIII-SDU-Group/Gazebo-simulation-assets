@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# @name Drones4Safety DC drone (powerline SLAM evaluation, sensor timing profile maxphase_drift, camera mount C25)
+#
+# @type Quadrotor Wide
+#
+# @maintainer Frederik Nyboe <ffn@sdu.dk>
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=hca_full_pylon_setup}
+# PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+# PX4 spawns the vehicle at the world origin, where hca_full_pylon_setup's
+# terrain lies 3.0 cm lower. The vehicle then drops onto it while PX4 starts,
+# and the EKF initialises on the landing impact: a 0.1 m/s^2 horizontal
+# accelerometer bias, indistinguishable from tilt on the ground, that leaves
+# the attitude 0.01 rad (and, through the magnetometer, the heading up to
+# 0.04 rad) off until minutes into the first flight. Spawn at rest instead.
+if [ "$PX4_GZ_WORLD" = "hca_full_pylon_setup" ]; then
+	PX4_GZ_MODEL_POSE=${PX4_GZ_MODEL_POSE:=0,0,-0.028}
+fi
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=d4s_dc_drone_powerline_eval_c25_maxphase_drift}
+
+param set-default SIM_GZ_EN 1
+
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_BAROSIM 1
+param set-default EKF2_ABL_LIM 0.8
+# Gazebo's magnetometer field has a declination of +3.12 deg at this world's
+# location (hca_full_pylon_setup, Odense; gz-sim's tables), where PX4's world
+# magnetic model gives +4.30 deg. EKF2_DECL_TYPE 2 makes the EKF use
+# EKF2_MAG_DECL (III's PX4 keeps that value instead of overwriting it with the
+# model's). Set, not defaulted: earlier boots saved the model's value.
+param set EKF2_DECL_TYPE 2
+param set EKF2_MAG_DECL 3.12
+# The simulated magnetometer has no bias: fuse its heading rather than learning
+# earth-field and bias states, which a hovering vehicle cannot observe and
+# which left the heading 0.02 rad off truth.
+param set-default EKF2_MAG_TYPE 1
+param set-default COM_RC_IN_MODE 1
+# QGroundControl joystick updates can stall for several seconds under simulation load.
+param set-default COM_RC_LOSS_T 5.0
+param set-default NAV_RCL_ACT 0
+
+param set-default BAT1_N_CELLS 6
+param set-default SIM_BAT_ENABLE 1
+param set-default SIM_BAT_DRAIN 300
+param set-default SIM_BAT_MIN_PCT 20
+param set-default SIM_BAT_CAP_WH 2
+param set-default SIM_BAT_CHG_EFF 0.9
+param set-default SIM_BAT_CHG_MAX 250
+param set-default SIM_BAT_CHG_TOUT 1
+param set-default SIM_BAT_INIT_PCT 100
+param set-default SIM_BAT_RESET 0
+
+param set-default CA_AIRFRAME 0
+param set-default CA_ROTOR_COUNT 4
+
+param set-default CA_ROTOR0_PX 0.21
+param set-default CA_ROTOR0_PY 0.21
+param set-default CA_ROTOR0_KM 0.05
+
+param set-default CA_ROTOR1_PX -0.21
+param set-default CA_ROTOR1_PY -0.21
+param set-default CA_ROTOR1_KM 0.05
+
+param set-default CA_ROTOR2_PX 0.21
+param set-default CA_ROTOR2_PY -0.21
+param set-default CA_ROTOR2_KM -0.05
+
+param set-default CA_ROTOR3_PX -0.21
+param set-default CA_ROTOR3_PY 0.21
+param set-default CA_ROTOR3_KM -0.05
+
+# param set-default PWM_MAIN_FUNC1 101
+# param set-default PWM_MAIN_FUNC2 102
+# param set-default PWM_MAIN_FUNC3 103
+# param set-default PWM_MAIN_FUNC4 104
+
+param set-default SIM_GZ_EC_FUNC1 101
+param set-default SIM_GZ_EC_FUNC2 102
+param set-default SIM_GZ_EC_FUNC3 103
+param set-default SIM_GZ_EC_FUNC4 104
+
+param set-default SIM_GZ_EC_MIN1 100
+param set-default SIM_GZ_EC_MIN2 100
+param set-default SIM_GZ_EC_MIN3 100
+param set-default SIM_GZ_EC_MIN4 100
+
+param set-default SIM_GZ_EC_MAX1 1100
+param set-default SIM_GZ_EC_MAX2 1100
+param set-default SIM_GZ_EC_MAX3 1100
+param set-default SIM_GZ_EC_MAX4 1100
+
+# Thrust this model needs to hover (PX4 hover-thrust estimate in steady
+# flight: 0.698-0.699). PX4 resets its estimate to this value on every disarm,
+# so every takeoff from the cable starts from it.
+param set-default MPC_THR_HOVER 0.70
